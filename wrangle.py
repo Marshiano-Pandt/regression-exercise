@@ -1,7 +1,7 @@
 import os 
 import env
 import pandas as pd
-from sklearn.model_selection import train_test_split
+
 
 
 
@@ -20,9 +20,20 @@ def check_file_exists(filename, query, url):
 
 
 
+###################################
 
+def get_zillow_data(): 
+    '''
+    got the data from the Mysql database,
+    ran a query to get specific columns that are 'Single Family Residential'(261) properties
+    '''
+    filename = "zillow.csv"
 
-def get_zillow_data():    
+    if os.path.isfile(filename):
+
+        return pd.read_csv(filename, index_col=0)
+    
+    
     url = env.get_db_url(db='zillow')
     query = '''
         select bedroomcnt, bathroomcnt, calculatedfinishedsquarefeet, taxvaluedollarcnt, yearbuilt, taxamount, fips
@@ -31,12 +42,46 @@ def get_zillow_data():
                             
     '''
 
+    # Read the SQL query into a dataframe
     df = pd.read_sql(query, url)
 
+        # Write that dataframe to disk for later. Called "caching" the data for later.
+    df.to_csv(filename)
+
+        # Return the dataframe to the calling code
+    
+    
+
+    return df
+################################
+
+
+def prep_zillow(df):
+    '''
+    This function takes in a dataframe
+    renames the columns and drops nulls values
+    Additionally it changes datatypes for appropriate columns
+    and renames fips to actual county names.
+    Then returns a cleaned dataframe
+    '''
+    df = df.rename(columns = {'bedroomcnt':'bedrooms',
+                     'bathroomcnt':'bathrooms',
+                     'calculatedfinishedsquarefeet':'area',
+                     'taxvaluedollarcnt':'taxvalue',
+                     'fips':'county'})
+    
+    df = df.dropna()
+    
+    make_ints = ['bedrooms','area','taxvalue','yearbuilt']
+
+    for col in make_ints:
+        df[col] = df[col].astype(int)
+        
+    df.county = df.county.map({6037:'LA',6059:'Orange',6111:'Ventura'})
     
     return df
 
-
+##################################
 def wrangle_zillow():
     '''
     Aqcuiring the data and droppinfg rows that have nan.
@@ -44,12 +89,12 @@ def wrangle_zillow():
     
     zillow = get_zillow_data()
     
-    df = zillow.dropna()
+    df = prep_zillow(zillow)
     
     
     return df
 
-
+##########################################
 
 def splitting_data(df, col):
     '''
